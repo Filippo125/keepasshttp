@@ -18,6 +18,7 @@ using KeePass.UI;
 using KeePass;
 using KeePassLib.Cryptography.PasswordGenerator;
 using KeePassLib.Cryptography;
+using System.Text.RegularExpressions;
 
 namespace KeePassHttp {
     public sealed partial class KeePassHttpExt : Plugin
@@ -316,7 +317,17 @@ namespace KeePassHttp {
             {
                 var title = e.Strings.ReadSafe(PwDefs.TitleField);
                 var entryUrl = e.Strings.ReadSafe(PwDefs.UrlField);
-                var c = GetEntryConfig(e);
+
+				var regex = e.Strings.Get("KeePassHttpRegex");
+				if (regex != null)
+				{
+					if (Regex.IsMatch(formHost, regex.ReadString()))
+						return true;
+					else
+						return false;
+				}
+
+				var c = GetEntryConfig(e);
                 if (c != null)
                 {
                     if (c.Allow.Contains(formHost) && (submitHost == null || c.Allow.Contains(submitHost)))
