@@ -106,7 +106,7 @@ namespace KeePassHttp
 
         private PwEntry GetConfigEntry(bool create)
         {
-            var root = host.Database.RootGroup;
+            var root = GetConnectionDatabase().RootGroup;
             var uuid = new PwUuid(KEEPASSHTTP_UUID);
             var entry = root.FindEntry(uuid, false);
             if (entry == null && create)
@@ -281,7 +281,7 @@ namespace KeePassHttp
         }
         private Response ProcessRequest(Request r, HttpListenerResponse resp)
         {
-            string hash = host.Database.RootGroup.Uuid.ToHexString() + host.Database.RecycleBinUuid.ToHexString();
+            string hash = GetConnectionDatabase().RootGroup.Uuid.ToHexString() + GetConnectionDatabase().RecycleBinUuid.ToHexString();
             hash = getSHA1(hash);
 
             var response = new Response(r.RequestType, hash);
@@ -407,7 +407,7 @@ namespace KeePassHttp
         private void UpdateUI(PwGroup group)
         {
             var win = host.MainWindow;
-            if (group == null) group = host.Database.RootGroup;
+            if (group == null) group = GetConnectionDatabase().RootGroup;
             var f = (MethodInvoker) delegate {
                 win.UpdateUI(false, null, true, group, true, null, true);
             };
@@ -465,5 +465,48 @@ namespace KeePassHttp
 
             return s.ToString();
         }
-    }
+
+		internal string GetDbHash(PwDatabase db)
+		{
+			var ms = new MemoryStream();
+			ms.Write(db.RootGroup.Uuid.UuidBytes, 0, 16);
+			ms.Write(db.RecycleBinUuid.UuidBytes, 0, 16);
+			var sha256 = new SHA256CryptoServiceProvider();
+			var hashBytes = sha256.ComputeHash(ms.ToArray());
+			return ByteToHexBitFiddle(hashBytes);
+		}
+
+		// wizard magic courtesy of https://stackoverflow.com/questions/311165/how-do-you-convert-a-byte-array-to-a-hexadecimal-string-and-vice-versa/14333437#14333437
+		static string ByteToHexBitFiddle(byte[] bytes)
+		{
+			char[] c = new char[bytes.Length * 2];
+			int b;
+			for (int i = 0; i < bytes.Length; i++)
+			{
+				b = bytes[i] >> 4;
+				c[i * 2] = (char)(55 + b + (((b - 10) >> 31) & -7));
+				b = bytes[i] & 0xF;
+				c[i * 2 + 1] = (char)(55 + b + (((b - 10) >> 31) & -7));
+			}
+			return new string(c);
+		}
+
+
+		private PwDatabase GetConnectionDatabase()
+		{
+			var options = new ConfigOpt(host.CustomConfig);
+			if (string.IsNullOrEmpty(options.ConnectionDatabaseHash))
+			{
+				return host.Database;
+			}
+			else
+			{
+				var document = host.MainWindow.DocumentManager.Documents.Find(p => GetDbHash(p.Database) == options.ConnectionDatabaseHash);
+				if (document != null)
+					return document.Database;
+				else
+					return host.Database;
+			}
+		}
+	}
 }

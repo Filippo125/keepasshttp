@@ -17,8 +17,10 @@ namespace KeePassHttp
         const string SortResultByUsernameKey = "KeePassHttp_SortResultByUsername";
         const string ListenerPortKey = "KeePassHttp_ListenerPort";
         const string ListenerHostKey = "KeePassHttp_ListenerHost";
+		const string ConnectionDatabaseHashKey = "KeePassHttp_ConnectionDatabaseHash";
 
-        public ConfigOpt(AceCustomConfig config)
+
+		public ConfigOpt(AceCustomConfig config)
         {
             _config = config;
         }
@@ -94,5 +96,11 @@ namespace KeePassHttp
             get { return _config.GetString(ListenerHostKey, KeePassHttpExt.DEFAULT_HOST); }
             set { _config.SetString(ListenerHostKey, value); }
         }
-    }
+
+		public string ConnectionDatabaseHash
+		{
+			get { return _config.GetString(ConnectionDatabaseHashKey, string.Empty); }
+			set { _config.SetString(ConnectionDatabaseHashKey, value); }
+		}
+	}
 }
