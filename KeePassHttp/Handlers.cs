@@ -81,28 +81,46 @@ namespace KeePassHttp {
             return false;
         }
 
+        private List<PwDatabase> GetDatabases()
+        {
+            List<PwDatabase> listDatabases;
+            var configOpt = new ConfigOpt(host.CustomConfig);
+            if (configOpt.SearchInAllOpenedDatabases)
+            {
+                listDatabases = host.MainWindow.DocumentManager.GetOpenDatabases();
+            }
+            else
+            {
+                listDatabases = new List<PwDatabase>();
+                listDatabases.Add(host.Database);
+            }
+            return listDatabases;
+        }
+
         private void GetAllLoginsHandler(Request r, Response resp, Aes aes)
         {
             if (!VerifyRequest(r, aes))
                 return;
+            List<PwDatabase> listDatabases = GetDatabases();
 
             var list = new PwObjectList<PwEntry>();
-
-            var root = host.Database.RootGroup;
-
             var parms = MakeSearchParameters();
 
-            parms.SearchString = @"^[A-Za-z0-9:/-]+\.[A-Za-z0-9:/-]+$"; // match anything looking like a domain or url
-
-            root.SearchEntries(parms, list);
-            foreach (var entry in list)
+            foreach ( var db in listDatabases)
             {
-                var name = entry.Strings.ReadSafe(PwDefs.TitleField);
-                var login = GetUserPass(entry)[0];
-                var uuid = entry.Uuid.ToHexString();
-                var e = new ResponseEntry(name, login, null, uuid, null);
-                resp.Entries.Add(e);
+                parms.SearchString = @".*"; // match anything
+
+                db.RootGroup.SearchEntries(parms, list);
+                foreach (var entry in list)
+                {
+                    var name = entry.Strings.ReadSafe(PwDefs.TitleField);
+                    var login = GetUserPass(entry)[0];
+                    var uuid = entry.Uuid.ToHexString();
+                    var e = new ResponseEntry(name, login, null, uuid, null);
+                    resp.Entries.Add(e);
+                }
             }
+            
             resp.Success = true;
             resp.Id = r.Id;
             SetResponseVerifier(resp, aes);
@@ -271,23 +289,7 @@ namespace KeePassHttp {
             var origSearchHost = searchHost;
             var parms = MakeSearchParameters();
 
-            List<PwDatabase> listDatabases = new List<PwDatabase>();
-
-            var configOpt = new ConfigOpt(this.host.CustomConfig);
-            if (configOpt.SearchInAllOpenedDatabases)
-            {
-                foreach (PwDocument doc in host.MainWindow.DocumentManager.Documents)
-                {
-                    if (doc.Database.IsOpen)
-                    {
-                        listDatabases.Add(doc.Database);
-                    }
-                }
-            }
-            else
-            {
-                listDatabases.Add(host.Database);
-            }
+            List<PwDatabase> listDatabases = GetDatabases();
 
             int listCount = 0;
             foreach (PwDatabase db in listDatabases)
@@ -378,7 +380,7 @@ namespace KeePassHttp {
             };
 
             var result = from e in listResult where filter(e.entry) select e;
-
+            var configOpt = new ConfigOpt(host.CustomConfig);
             if (configOpt.MatchSchemes)
             {
                 result = from e in result where filterSchemes(e.entry) select e;
@@ -402,25 +404,8 @@ namespace KeePassHttp {
 
             var parms = MakeSearchParametersLikeSearchBox();
 
-            List<PwDatabase> listDatabases = new List<PwDatabase>();
+            List<PwDatabase> listDatabases = GetDatabases();
 
-            var configOpt = new ConfigOpt(this.host.CustomConfig);
-            if (configOpt.SearchInAllOpenedDatabases)
-            {
-                foreach (PwDocument doc in host.MainWindow.DocumentManager.Documents)
-                {
-                    if (doc.Database.IsOpen)
-                    {
-                        listDatabases.Add(doc.Database);
-                    }
-                }
-            }
-            else
-            {
-                listDatabases.Add(host.Database);
-            }
-
-            int listCount = 0;
             foreach (PwDatabase db in listDatabases)
             {
                 parms.SearchString = searchString;
